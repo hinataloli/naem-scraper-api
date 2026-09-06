@@ -58,11 +58,12 @@ app.post('/api/schedule', async (req, res) => {
     }
 });
 
-// API 3: Lấy Thông Báo Sinh Viên từ website nhà trường (naem.edu.vn/vi/sinh-vien)
+// API 3: Lấy Thông Báo từ website nhà trường (naem.edu.vn)
 app.get('/api/announcements', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
+    const category = req.query.category === 'dao-tao' ? 'dao-tao' : 'sinh-vien';
     try {
-        const data = await NaemScraper.getAnnouncements(page);
+        const data = await NaemScraper.getAnnouncements(page, category);
         res.json({
             success: true,
             data

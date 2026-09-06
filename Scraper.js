@@ -153,8 +153,11 @@ class NaemScraper {
         return schedule;
     }
 
-    static async getAnnouncements(page = 1) {
-        const url = `https://naem.edu.vn/vi/sinh-vien?page=${page}`;
+    static async getAnnouncements(page = 1, category = 'sinh-vien') {
+        const url = category === 'dao-tao'
+            ? `https://naem.edu.vn/vi/danh-muc-dao-tao/dai-hoc?page=${page}`
+            : `https://naem.edu.vn/vi/sinh-vien?page=${page}`;
+
         const res = await axios.get(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -166,28 +169,51 @@ class NaemScraper {
         const $ = cheerio.load(res.data);
         const announcements = [];
 
-        $('.module__fostering .fostering').each((i, el) => {
-            const titleEl = $(el).find('.fostering__title a');
-            const title = titleEl.text().trim();
-            const link = titleEl.attr('href') || '';
-            const thumb = $(el).find('.frame img').attr('src') || '';
-            const desc = $(el).find('.fostering__desc p').text().trim();
+        if (category === 'dao-tao') {
+            $('.module__new .new').each((i, el) => {
+                const titleEl = $(el).find('.new__title a');
+                const title = titleEl.text().trim();
+                const link = titleEl.attr('href') || '';
+                const thumb = $(el).find('.new__avata img').attr('src') || '';
+                const desc = $(el).find('.new__desc').text().trim();
+                const dateRaw = $(el).find('.new__date').text().trim();
+                const dateMatch = dateRaw.match(/([0-9]{1,2}\/[0-9]{1,2}\/[0-9]{4})/);
+                const date = dateMatch ? dateMatch[1] : dateRaw;
 
-            const day = $(el).find('.new__post-date .date__item span').eq(0).text().trim();
-            const month = $(el).find('.new__post-date .date__item span').eq(1).text().trim();
-            const yearShort = $(el).find('.new__post-date .date__item').eq(1).text().trim();
-            const date = (day && month) ? `${day.padStart(2, '0')}/${month.padStart(2, '0')}/20${yearShort || '26'}` : '';
+                if (title) {
+                    announcements.push({
+                        title,
+                        link: link.startsWith('http') ? link : `https://naem.edu.vn${link}`,
+                        thumbnail: thumb.startsWith('http') ? thumb : `https://naem.edu.vn${thumb}`,
+                        description: desc,
+                        date
+                    });
+                }
+            });
+        } else {
+            $('.module__fostering .fostering').each((i, el) => {
+                const titleEl = $(el).find('.fostering__title a');
+                const title = titleEl.text().trim();
+                const link = titleEl.attr('href') || '';
+                const thumb = $(el).find('.frame img').attr('src') || '';
+                const desc = $(el).find('.fostering__desc p').text().trim();
 
-            if (title) {
-                announcements.push({
-                    title,
-                    link: link.startsWith('http') ? link : `https://naem.edu.vn${link}`,
-                    thumbnail: thumb.startsWith('http') ? thumb : `https://naem.edu.vn${thumb}`,
-                    description: desc,
-                    date
-                });
-            }
-        });
+                const day = $(el).find('.new__post-date .date__item span').eq(0).text().trim();
+                const month = $(el).find('.new__post-date .date__item span').eq(1).text().trim();
+                const yearShort = $(el).find('.new__post-date .date__item').eq(1).text().trim();
+                const date = (day && month) ? `${day.padStart(2, '0')}/${month.padStart(2, '0')}/20${yearShort || '26'}` : '';
+
+                if (title) {
+                    announcements.push({
+                        title,
+                        link: link.startsWith('http') ? link : `https://naem.edu.vn${link}`,
+                        thumbnail: thumb.startsWith('http') ? thumb : `https://naem.edu.vn${thumb}`,
+                        description: desc,
+                        date
+                    });
+                }
+            });
+        }
 
         const pages = [];
         $('.pagination ul li').each((i, el) => {
@@ -199,6 +225,7 @@ class NaemScraper {
         return {
             page: parseInt(page),
             maxPage,
+            category,
             announcements
         };
     }
