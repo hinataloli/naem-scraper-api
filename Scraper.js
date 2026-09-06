@@ -101,27 +101,51 @@ class NaemScraper {
     }
 
     _parseSchedule(html) {
-        // Bước 4: Parse bảng HTML thành JSON
         const $ = cheerio.load(html);
         const schedule = [];
         
-        // Dựa vào HTML tiêu chuẩn của các trường dùng chung bộ code ASP.NET (EduSoft)
-        const table = $('table[id*="grid"], table[class*="grid"]').first();
+        const table = $('#grdViewLopDangKy');
         if (!table.length) return [];
 
+        let days = [];
         table.find('tr').each((i, row) => {
-            if (i === 0) return; // Bỏ qua Header
-            
-            const cells = $(row).find('td');
-            if (cells.length < 5) return; 
+            if (i === 0) {
+                $(row).find('th, td').each((j, cell) => {
+                    if (j > 0) days.push($(cell).text().trim());
+                });
+                return;
+            }
 
-            // Cấu trúc giả định: Thứ | Buổi | Tiết | Mã MH | Tên MH | Số TC | Lớp | Giảng viên | Phòng
-            // (Thực tế bạn cần log mảng rowData ra để xem chính xác cột nào chứa dữ liệu nào trên web NAEM)
-            const rowData = [];
+            const cells = $(row).find('th, td');
+            let buoi = '';
             cells.each((j, cell) => {
-                rowData.push($(cell).text().trim());
+                if (j === 0) {
+                    buoi = $(cell).text().trim();
+                    return;
+                }
+                
+                const content = $(cell).text().trim().replace(/\s+/g, ' ');
+                if (content && content.length > 5) {
+                    let subjectName = content.split('Tiết học:')[0].trim();
+                    let tietHoc = (content.match(/Tiết học:\s*(.*?)(?=\s*Mã lớp:|$)/) || [])[1] || '';
+                    let giangVien = (content.match(/GV:\s*(.*?)(?=\s*Phòng:|$)/) || [])[1] || '';
+                    let phong = (content.match(/Phòng:\s*(.*?)(?=\s*Hình thức học:|$)/) || [])[1] || '';
+
+                    const thuDate = days[j - 1] || `Thứ ${j + 1}`;
+
+                    schedule.push([
+                        thuDate,       // row[0]
+                        buoi,          // row[1]
+                        tietHoc,       // row[2]
+                        '',            // row[3]
+                        subjectName,   // row[4]
+                        '',            // row[5]
+                        '',            // row[6]
+                        giangVien,     // row[7]
+                        phong          // row[8]
+                    ]);
+                }
             });
-            schedule.push(rowData);
         });
         
         return schedule;
