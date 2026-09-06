@@ -128,8 +128,10 @@ class NaemScraper {
                 if (content && content.length > 5) {
                     let subjectName = content.split('Tiết học:')[0].trim();
                     let tietHoc = (content.match(/Tiết học:\s*(.*?)(?=\s*Mã lớp:|$)/) || [])[1] || '';
+                    let maLop = (content.match(/Mã lớp:\s*(.*?)(?=\s*GV:|$)/) || [])[1] || '';
                     let giangVien = (content.match(/GV:\s*(.*?)(?=\s*Phòng:|$)/) || [])[1] || '';
                     let phong = (content.match(/Phòng:\s*(.*?)(?=\s*Hình thức học:|$)/) || [])[1] || '';
+                    let hinhThuc = (content.match(/Hình thức học:\s*(.*?)$/) || [])[1] || '';
 
                     const thuDate = days[j - 1] || `Thứ ${j + 1}`;
 
@@ -137,9 +139,9 @@ class NaemScraper {
                         thuDate,       // row[0]
                         buoi,          // row[1]
                         tietHoc,       // row[2]
-                        '',            // row[3]
+                        maLop,         // row[3] (Mã lớp)
                         subjectName,   // row[4]
-                        '',            // row[5]
+                        hinhThuc,      // row[5] (Hình thức học)
                         '',            // row[6]
                         giangVien,     // row[7]
                         phong          // row[8]
