@@ -58,6 +58,20 @@ app.post('/api/schedule', async (req, res) => {
     }
 });
 
+// API 3: Lấy Thông Báo Sinh Viên từ website nhà trường (naem.edu.vn/vi/sinh-vien)
+app.get('/api/announcements', async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    try {
+        const data = await NaemScraper.getAnnouncements(page);
+        res.json({
+            success: true,
+            data
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Naem Scraper API đang chạy tại http://localhost:${PORT}`);

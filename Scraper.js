@@ -152,6 +152,56 @@ class NaemScraper {
         
         return schedule;
     }
+
+    static async getAnnouncements(page = 1) {
+        const url = `https://naem.edu.vn/vi/sinh-vien?page=${page}`;
+        const res = await axios.get(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+            },
+            timeout: 10000
+        });
+
+        const $ = cheerio.load(res.data);
+        const announcements = [];
+
+        $('.module__fostering .fostering').each((i, el) => {
+            const titleEl = $(el).find('.fostering__title a');
+            const title = titleEl.text().trim();
+            const link = titleEl.attr('href') || '';
+            const thumb = $(el).find('.frame img').attr('src') || '';
+            const desc = $(el).find('.fostering__desc p').text().trim();
+
+            const day = $(el).find('.new__post-date .date__item span').eq(0).text().trim();
+            const month = $(el).find('.new__post-date .date__item span').eq(1).text().trim();
+            const yearShort = $(el).find('.new__post-date .date__item').eq(1).text().trim();
+            const date = (day && month) ? `${day.padStart(2, '0')}/${month.padStart(2, '0')}/20${yearShort || '26'}` : '';
+
+            if (title) {
+                announcements.push({
+                    title,
+                    link: link.startsWith('http') ? link : `https://naem.edu.vn${link}`,
+                    thumbnail: thumb.startsWith('http') ? thumb : `https://naem.edu.vn${thumb}`,
+                    description: desc,
+                    date
+                });
+            }
+        });
+
+        const pages = [];
+        $('.pagination ul li').each((i, el) => {
+            const pageNum = parseInt($(el).text().trim());
+            if (!isNaN(pageNum)) pages.push(pageNum);
+        });
+        const maxPage = pages.length > 0 ? Math.max(...pages) : 1;
+
+        return {
+            page: parseInt(page),
+            maxPage,
+            announcements
+        };
+    }
 }
 
 module.exports = NaemScraper;
