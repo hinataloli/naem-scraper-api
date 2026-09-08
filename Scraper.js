@@ -229,6 +229,30 @@ class NaemScraper {
             announcements
         };
     }
+
+    async getStudentProfile() {
+        const res = await this.client.get('/wfrmHoSoSinhVien.aspx');
+        this._updateCookies(res);
+        const $ = cheerio.load(res.data);
+
+        const avatarRaw = $('#HeaderSV_image_ulr').attr('src') || $('img[src*="FileAnhSinhVien"]').attr('src') || '';
+        const avatarUrl = avatarRaw ? 'http://sinhvien.naem.edu.vn' + avatarRaw.replace(/\\/g, '/') : '';
+
+        return {
+            studentId: $('#txtMa_sv').val()?.trim() || '',
+            fullName: $('#txtHo_ten').val()?.trim() || $('#HeaderSV_lblHo_ten').text().trim() || '',
+            dob: $('#txtNgay_sinh').val()?.trim() || '',
+            gender: $('#txtGioi_tinh').val()?.trim() || '',
+            major: $('#txtTen_chuyen_nganh').val()?.trim() || $('#txtTen_nganh').val()?.trim() || '',
+            className: $('#txtTen_lop').val()?.trim() || '',
+            faculty: $('#txtTen_khoa').val()?.trim() || '',
+            academicYear: $('#txtKhoa_hoc').val()?.trim() || '',
+            educationType: $('#txtTen_he').val()?.trim() || '',
+            email: $('#txtEmail').val()?.trim() || '',
+            phone: $('#txtDien_thoai_cn').val()?.trim() || '',
+            avatarUrl: avatarUrl
+        };
+    }
 }
 
 module.exports = NaemScraper;

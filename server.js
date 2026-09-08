@@ -6,7 +6,27 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// API 1: Đăng nhập và lấy danh sách Tuần
+// API: Đăng nhập và xác minh lấy thông tin hồ sơ sinh viên
+app.post('/api/student/profile', async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ success: false, error: 'Thiếu mã sinh viên hoặc mật khẩu' });
+
+    try {
+        const scraper = new NaemScraper();
+        await scraper.login(username, password);
+        const profile = await scraper.getStudentProfile();
+        
+        res.json({
+            success: true,
+            message: 'Lấy thông tin sinh viên thành công',
+            data: profile
+        });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+});
+
+// API 1: Đăng nhập và lấy danh sách Tuần (kèm thông tin hồ sơ)
 app.post('/api/auth/weeks', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Thiếu username hoặc password' });
@@ -15,14 +35,21 @@ app.post('/api/auth/weeks', async (req, res) => {
         const scraper = new NaemScraper();
         await scraper.login(username, password);
         const { weeks, hiddenFields } = await scraper.getWeeks();
+        let profile = null;
+        try {
+            profile = await scraper.getStudentProfile();
+        } catch (e) {
+            console.warn('Không lấy được profile kèm theo:', e.message);
+        }
         
         res.json({
             success: true,
             message: 'Lấy dữ liệu thành công',
             data: {
                 weeks,
-                hiddenFields, // Trả về cho client để dùng ở API gọi lịch học
-                cookies: scraper.cookies // Nếu bạn muốn client giữ cookie để tái sử dụng
+                hiddenFields,
+                profile,
+                cookies: scraper.cookies
             }
         });
     } catch (err) {
