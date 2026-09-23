@@ -29,7 +29,7 @@ app.post('/api/student/profile', async (req, res) => {
 // API 1: Đăng nhập và lấy danh sách Tuần (kèm thông tin hồ sơ)
 app.post('/api/auth/weeks', async (req, res) => {
     const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'Thiếu username hoặc password' });
+    if (!username || !password) return res.status(400).json({ success: false, error: 'Thiếu username hoặc password' });
 
     try {
         const scraper = new NaemScraper();
@@ -53,14 +53,20 @@ app.post('/api/auth/weeks', async (req, res) => {
             }
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        const isAuthError = err.message && (
+            err.message.includes('không hợp lệ') || 
+            err.message.includes('Sai thông tin') || 
+            err.message.includes('Đăng nhập thất bại') ||
+            err.message.includes('Mật khẩu')
+        );
+        res.status(isAuthError ? 401 : 500).json({ success: false, error: err.message });
     }
 });
 
 // API 2: Lấy Lịch học theo Tuần
 app.post('/api/schedule', async (req, res) => {
     const { username, password, weekValue, hiddenFields } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'Thiếu thông tin đăng nhập' });
+    if (!username || !password) return res.status(400).json({ success: false, error: 'Thiếu thông tin đăng nhập' });
 
     try {
         const scraper = new NaemScraper();
@@ -81,7 +87,13 @@ app.post('/api/schedule', async (req, res) => {
             data: schedule
         });
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        const isAuthError = err.message && (
+            err.message.includes('không hợp lệ') || 
+            err.message.includes('Sai thông tin') || 
+            err.message.includes('Đăng nhập thất bại') ||
+            err.message.includes('Mật khẩu')
+        );
+        res.status(isAuthError ? 401 : 500).json({ success: false, error: err.message });
     }
 });
 

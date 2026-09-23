@@ -1,16 +1,28 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 
+// Danh sách cổng portal / API sinh viên NAEM (ưu tiên HTTPS qua unisoft và dự phòng HTTP qua domain trường)
+const DEFAULT_ENDPOINTS = [
+    'https://sinhvien-naem.unisoft.edu.vn',
+    'http://sinhvien.naem.edu.vn'
+];
+
 class NaemScraper {
-    constructor() {
+    constructor(baseUrl = process.env.NAEM_PORTAL_URL) {
+        this.candidateUrls = baseUrl 
+            ? [baseUrl.replace(/\/$/, '')] 
+            : [...DEFAULT_ENDPOINTS];
+        this.baseURL = this.candidateUrls[0];
+
         this.client = axios.create({
-            baseURL: 'http://sinhvien.naem.edu.vn',
+            baseURL: this.baseURL,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
             maxRedirects: 0,
+            timeout: 15000,
             validateStatus: status => status >= 200 && status < 400
         });
         this.cookies = [];
@@ -20,6 +32,7 @@ class NaemScraper {
         return {
             __VIEWSTATE: $('#__VIEWSTATE').val() || '',
             __VIEWSTATEGENERATOR: $('#__VIEWSTATEGENERATOR').val() || '',
+            __VIEWSTATEENCRYPTED: $('#__VIEWSTATEENCRYPTED').val() || '',
             __EVENTVALIDATION: $('#__EVENTVALIDATION').val() || ''
         };
     }
@@ -37,28 +50,56 @@ class NaemScraper {
     }
 
     async login(username, password) {
-        // Bước 1: GET Login.aspx
-        const resGet = await this.client.get('/Login.aspx');
-        this._updateCookies(resGet);
-        const $get = cheerio.load(resGet.data);
-        const hiddenFields = this._extractHiddenFields($get);
+        let lastError = null;
 
-        // Bước 2: POST Login.aspx
-        const payload = new URLSearchParams({
-            ...hiddenFields,
-            txtusername: username,
-            txtpassword: password,
-            btnDangNhap: 'Đăng nhập'
-        });
+        // Thử lần lượt các URL: https://sinhvien-naem.unisoft.edu.vn và http://sinhvien.naem.edu.vn
+        for (let i = 0; i < this.candidateUrls.length; i++) {
+            const candidateBase = this.candidateUrls[i];
+            try {
+                this.baseURL = candidateBase;
+                this.client.defaults.baseURL = candidateBase;
+                this.cookies = [];
+                this.client.defaults.headers['Cookie'] = '';
 
-        const resPost = await this.client.post('/Login.aspx', payload.toString());
-        this._updateCookies(resPost);
+                // Bước 1: GET Login.aspx
+                const resGet = await this.client.get('/Login.aspx');
+                this._updateCookies(resGet);
+                const $get = cheerio.load(resGet.data);
+                const hiddenFields = this._extractHiddenFields($get);
 
-        const isAuth = this.cookies.some(c => c.includes('.ASPXAUTH'));
-        if (!isAuth) {
-            throw new Error('Đăng nhập thất bại. Sai thông tin hoặc lỗi hệ thống NAEM.');
+                // Bước 2: POST Login.aspx
+                const payload = new URLSearchParams({
+                    ...hiddenFields,
+                    txtusername: username,
+                    txtpassword: password,
+                    btnDangNhap: 'Đăng nhập'
+                });
+
+                const resPost = await this.client.post('/Login.aspx', payload.toString());
+                this._updateCookies(resPost);
+
+                const isAuth = this.cookies.some(c => c.includes('.ASPXAUTH'));
+                if (!isAuth) {
+                    const $post = cheerio.load(resPost.data || '');
+                    const schoolMsg = $post('#lblThong_bao').text().trim() || $post('#lblThongBao').text().trim() || $post('#lblError').text().trim();
+                    throw new Error(schoolMsg || 'Đăng nhập thất bại. Sai thông tin hoặc lỗi hệ thống NAEM.');
+                }
+                return this.cookies;
+            } catch (err) {
+                lastError = err;
+                // Nếu lỗi là do sai thông tin đăng nhập, không cần thử endpoint khác
+                if (err.message && (
+                    err.message.includes('không hợp lệ') || 
+                    err.message.includes('Sai thông tin') || 
+                    err.message.includes('Đăng nhập thất bại')
+                )) {
+                    throw err;
+                }
+                console.warn(`[NaemScraper] Lỗi kết nối tới ${candidateBase} (${err.message}). Đang thử endpoint dự phòng...`);
+            }
         }
-        return this.cookies;
+
+        throw lastError || new Error('Không thể kết nối tới Cổng sinh viên NAEM.');
     }
 
     async getWeeks() {
@@ -236,7 +277,8 @@ class NaemScraper {
         const $ = cheerio.load(res.data);
 
         const avatarRaw = $('#HeaderSV_image_ulr').attr('src') || $('img[src*="FileAnhSinhVien"]').attr('src') || '';
-        const avatarUrl = avatarRaw ? 'http://sinhvien.naem.edu.vn' + avatarRaw.replace(/\\/g, '/') : '';
+        const currentBase = (this.baseURL || this.client?.defaults?.baseURL || 'https://sinhvien-naem.unisoft.edu.vn').replace(/\/$/, '');
+        const avatarUrl = avatarRaw ? `${currentBase}${avatarRaw.startsWith('/') ? '' : '/'}${avatarRaw.replace(/\\/g, '/')}` : '';
 
         return {
             studentId: $('#txtMa_sv').val()?.trim() || '',
