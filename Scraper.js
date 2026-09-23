@@ -190,7 +190,54 @@ class NaemScraper {
                 }
             });
         });
-        
+
+        // Sắp xếp thời khóa biểu theo đúng thứ tự ngày trong tuần và buổi học (Sáng -> Chiều -> Tối)
+        schedule.sort((a, b) => {
+            const parseDate = (str) => {
+                const match = (str || '').match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
+                if (!match) return null;
+                const d = parseInt(match[1]);
+                const m = parseInt(match[2]) - 1;
+                const y = match[3] ? parseInt(match[3]) : new Date().getFullYear();
+                return new Date(y, m, d).getTime();
+            };
+            const dateA = parseDate(a[0]);
+            const dateB = parseDate(b[0]);
+            if (dateA !== null && dateB !== null && dateA !== dateB) {
+                return dateA - dateB;
+            }
+
+            const thuWeights = { 'thứ 2': 2, 'thứ hai': 2, 'thứ 3': 3, 'thứ ba': 3, 'thứ 4': 4, 'thứ tư': 4, 'thứ 5': 5, 'thứ năm': 5, 'thứ 6': 6, 'thứ sáu': 6, 'thứ 7': 7, 'thứ bảy': 7, 'chủ nhật': 8 };
+            const getThuW = (str) => {
+                const s = (str || '').toLowerCase();
+                for (const [k, v] of Object.entries(thuWeights)) {
+                    if (s.includes(k)) return v;
+                }
+                return 99;
+            };
+            const wA = getThuW(a[0]);
+            const wB = getThuW(b[0]);
+            if (wA !== wB) return wA - wB;
+
+            const getStartTiet = (str) => {
+                const num = parseInt(String(str || '').split('-')[0].replace(/\D/g, ''));
+                return isNaN(num) ? 99 : num;
+            };
+            const tietA = getStartTiet(a[2]);
+            const tietB = getStartTiet(b[2]);
+            if (tietA !== tietB) return tietA - tietB;
+
+            const buoiWeights = { 'sáng': 1, 'chiều': 2, 'tối': 3 };
+            const getBuoiW = (str) => {
+                const s = (str || '').toLowerCase();
+                for (const [k, v] of Object.entries(buoiWeights)) {
+                    if (s.includes(k)) return v;
+                }
+                return 99;
+            };
+            return getBuoiW(a[1]) - getBuoiW(b[1]);
+        });
+
         return schedule;
     }
 
