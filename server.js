@@ -8,6 +8,7 @@ app.use(express.json());
 
 // API: Đăng nhập và xác minh lấy thông tin hồ sơ sinh viên
 //Test nhánh_fix_test
+//test tiếp
 app.post('/api/student/profile', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ success: false, error: 'Thiếu mã sinh viên hoặc mật khẩu' });
